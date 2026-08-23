@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gazi Pollob Hussain | AI Research Portfolio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js core & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <style>
+        /* ===== CSS Variables (dynamic) ===== */
+        :root {
+            --bg-color: #0d1117;
+            --accent-color: #58a6ff;
+            --accent-light: #7cb8ff;
+            --accent-dark: #3a7abd;
+            --accent-glow: rgba(88, 166, 255, 0.3);
+            --gradient-start: #58a6ff;
+            --gradient-end: #34d399;
+            --border-color: #30363d;
+            --text-color: #c9d1d9;
+            --transition-speed: 0.5s;
+        }
+        * { transition: border-color var(--transition-speed) ease, background-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease, color var(--transition-speed) ease; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            margin: 0;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Animated gradient background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -3;
+            background: radial-gradient(ellipse at 30% 20%, var(--accent-glow) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 80%, var(--accent-glow) 0%, transparent 60%),
+                var(--bg-color);
+            animation: bgPulse 8s ease-in-out infinite alternate;
+        }
+        @keyframes bgPulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        /* Matrix rain canvas */
+        canvas#matrix {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .glass-panel {
+            background: rgba(22, 27, 34, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transition: all 0.4s ease;
+        }
+        .glass-panel:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 8px 40px var(--accent-glow), 0 0 60px var(--accent-glow);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0d1117; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
+        .glow-text { text-shadow: 0 0 40px var(--accent-glow); }
+        .card-hover { transition: transform 0.3s ease, box-shadow 0.4s ease, border-color 0.4s ease; }
+        .card-hover:hover { transform: translateY(-8px) scale(1.01); box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 40px var(--accent-glow); border-color: var(--accent-color); }
+        .border-glow { border: 1px solid var(--border-color); transition: border-color 0.4s ease, box-shadow 0.4s ease; }
+        .border-glow:hover { border-color: var(--accent-color); box-shadow: 0 0 30px var(--accent-glow); }
+
+        .telemetry-log {
+            background: #0a0e14;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            color: var(--accent-light);
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 30px var(--accent-glow), inset 0 0 20px var(--accent-glow);
+            transition: all 0.4s ease;
+        }
+        .telemetry-log:hover { box-shadow: 0 0 50px var(--accent-glow), inset 0 0 30px var(--accent-glow); }
+        .telemetry-log .cmd { color: #34d399; }
+        .telemetry-log .info { color: var(--accent-light); }
+        .telemetry-log .success { color: #60a5fa; }
+
+        /* Three.js container */
+        #three-container {
+            width: 100%;
+            height: 500px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0a0e14;
+            border: 1px solid var(--border-color);
+            transition: border-color 0.4s ease, box-shadow 0.4s ease;
+            cursor: grab;
+        }
+        #three-container:active { cursor: grabbing; }
+        #three-container:hover { border-color: var(--accent-color); box-shadow: 0 0 40px var(--accent-glow); }
+
+        .accent-text { color: var(--accent-color); }
+        .accent-glow-ring { box-shadow: 0 0 40px var(--accent-glow); }
+        .accent-gradient-text {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 4s ease-in-out infinite;
+            background-size: 200% 200%;
+        }
+        @keyframes shimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+        .avatar-ring {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            animation: ringPulse 3s ease-in-out infinite;
+        }
+        @keyframes ringPulse { 0%,100% { box-shadow: 0 0 30px var(--accent-glow); } 50% { box-shadow: 0 0 60px var(--accent-glow), 0 0 80px var(--accent-glow); } }
+
+        .stat-card {
+            background: rgba(13,17,23,0.8);
+            border: 1px solid var(--border-color);
+            transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.3s ease;
+        }
+        .stat-card:hover { border-color: var(--accent-color); box-shadow: 0 0 30px var(--accent-glow); transform: scale(1.03); }
+
+        .nav-link {
+            position: relative;
+            transition: color 0.3s ease;
+            font-weight: 500;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -4px; left: 0;
+            width: 0; height: 2px;
+            background: var(--accent-color);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+        .nav-link:hover::after { width: 100%; }
+        .nav-link:hover { color: var(--accent-color); text-shadow: 0 0 20px var(--accent-glow); }
+
+        .pulse-dot {
+            background: var(--accent-color);
+            box-shadow: 0 0 20px var(--accent-glow);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.7; transform:scale(1.2); } }
+
+        .color-stripe {
+            height: 4px;
+            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end), var(--accent-light), var(--gradient-start));
+            background-size: 300% 100%;
+            animation: stripeMove 6s linear infinite;
+            width: 100%;
+            border-radius: 2px;
+        }
+        @keyframes stripeMove { 0% { background-position: 0% 0%; } 100% { background-position: 300% 0%; } }
+
+        .icon-glow { filter: drop-shadow(0 0 8px var(--accent-glow)); transition: filter 0.3s; }
+        .icon-glow:hover { filter: drop-shadow(0 0 20px var(--accent-color)); }
+
+        .social-icon { transition: all 0.3s ease; display: inline-block; }
+        .social-icon:hover { transform: scale(1.2) translateY(-2px); color: var(--accent-color); text-shadow: 0 0 30px var(--accent-glow); }
+
+        @media (max-width:640px) {
+            #three-container { height: 320px; }
+            .telemetry-log { font-size: 0.7rem; padding: 0.75rem; }
+            nav a { font-size: 0.7rem; }
+        }
+        @media (max-width:480px) {
+            #three-container { height: 260px; }
+            .telemetry-log { font-size: 0.6rem; padding: 0.5rem; }
+            header h1 { font-size: 2rem; }
+        }
+
+        .fade-in { animation: fadeIn 0.8s ease-out forwards; opacity: 0; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .fade-in-d1 { animation-delay: 0.1s; }
+        .fade-in-d2 { animation-delay: 0.2s; }
+        .fade-in-d3 { animation-delay: 0.3s; }
+        .fade-in-d4 { animation-delay: 0.4s; }
+    </style>
+</head>
+<body>
+
+    <!-- Animated stripe -->
+    <div class="color-stripe fixed top-0 left-0 z-50"></div>
+
+    <!-- Matrix Rain Canvas -->
+    <canvas id="matrix"></canvas>
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 glass-panel border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center shadow-lg" style="backdrop-filter: blur(20px);">
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <div class="w-2 h-2 sm:w-3 sm:h-3 rounded-full pulse-dot"></div>
+            <span class="font-mono font-bold tracking-tight text-white text-sm sm:text-lg">GPH_LABS // v2.6.4</span>
+        </div>
+        <div class="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-medium flex-wrap justify-center mt-1 sm:mt-0">
+            <a href="#abstract" class="nav-link text-gray-400">Framework</a>
+            <a href="#landscape-sim" class="nav-link text-gray-400">3D Hessian</a>
+            <a href="#telemetry" class="nav-link text-gray-400">Benchmarks</a>
+            <a href="#planes" class="nav-link text-gray-400">Deployment</a>
+            <a href="#terminal" class="nav-link text-gray-400">CLI</a>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <header class="max-w-4xl mx-auto mt-8 sm:mt-12 px-4 sm:px-6 text-center fade-in">
+        <div class="inline-block px-3 py-1 sm:px-4 sm:py-1.5 mb-4 rounded-full bg-opacity-20 border text-xs sm:text-sm tracking-wider uppercase font-mono"
+             style="background-color: var(--accent-glow); border-color: var(--accent-color); color: var(--accent-color);">
+            &gt; Frontier AI Research &amp; Optimization
+        </div>
+
+        <!-- Profile Picture -->
+        <div class="mb-6 flex justify-center">
+            <div class="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full p-1 avatar-ring shadow-2xl">
+                <img id="profile-img"
+                src="https://i.ibb.co.com/G4sNN2mL/Chat-GPT-Image-Aug-23-2026-07-10-24-PM.png"
+                alt="Gazi Pollob Hussain"
+                class="w-full h-full rounded-full object-cover border-2 border-[#0d1117]"
+                crossorigin="anonymous"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <div class="w-full h-full rounded-full bg-[#0d1117] flex items-center justify-center text-3xl sm:text-4xl font-bold border-2 border-[#0d1117] absolute top-0 left-0"
+                style="display:none; color: var(--accent-color);">
+                GPH
+                </div>
+            </div>
+        </div>
+
+        <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
+            Gazi Pollob <span class="accent-gradient-text">Hussain</span>
+        </h1>
+        <p class="mt-2 sm:mt-3 text-base sm:text-lg text-gray-400 max-w-2xl mx-auto">
+            AI Researcher &bull; Optimization Architect &bull; Systems Thinker
+        </p>
+        <div class="mt-3 sm:mt-4 flex flex-wrap justify-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500">
+            <span class="flex items-center gap-1.5"><i class="fas fa-map-pin accent-text icon-glow"></i> Dhaka, BD</span>
+            <span class="flex items-center gap-1.5"><i class="fas fa-envelope accent-text icon-glow"></i> gazi.pollob@ai-lab.dev</span>
+            <span class="flex items-center gap-1.5"><i class="fab fa-github accent-text icon-glow"></i> @gph-research</span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-16 sm:space-y-20">
+
+        <!-- ABSTRACT -->
+        <section id="abstract" class="scroll-mt-20 fade-in fade-in-d1">
+            <div class="flex items-center gap-3 mb-4 sm:mb-6">
+                <i class="fas fa-cube text-xl accent-text icon-glow"></i>
+                <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Research Framework</h2>
+                <span class="ml-auto text-xs text-gray-500 font-mono">v2.6.4</span>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 sm:p-6 md:p-8 border-glow card-hover">
+                <p class="text-gray-300 leading-relaxed text-sm sm:text-base">
+                    My work sits at the intersection of <span class="accent-text font-medium">deep learning optimization</span>,
+                    <span class="accent-text font-medium">loss landscape geometry</span>, and
+                    <span class="accent-text font-medium">efficient neural architecture search</span>.
+                    I design frameworks that expose the curvature of parameter space, enabling
+                    faster convergence and flatter minima for robust generalization.
+                </p>
+                <div class="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
+                    <div class="stat-card rounded-xl py-3 px-2">
+                        <div class="text-2xl font-mono font-bold accent-text">92.3%</div>
+                        <div class="text-xs text-gray-500">Convergence Rate</div>
+                    </div>
+                    <div class="stat-card rounded-xl py-3 px-2">
+                        <div class="text-2xl font-mono font-bold" style="color: var(--gradient-end);">1.2×</div>
+                        <div class="text-xs text-gray-500">Speedup vs. SOTA</div>
+                    </div>
+                    <div class="stat-card rounded-xl py-3 px-2">
+                        <div class="text-2xl font-mono font-bold text-amber-400">0.31</div>
+                        <div class="text-xs text-gray-500">Hessian Trace (avg)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3D HESSIAN with Three.js -->
+        <section id="landscape-sim" class="scroll-mt-20 fade-in fade-in-d2">
+            <div class="flex items-center gap-3 mb-4 sm:mb-6">
+                <i class="fas fa-chart-line text-xl accent-text icon-glow"></i>
+                <h2 class="text-xl sm:text-2xl font-bold tracking-tight">3D Hessian Sim</h2>
+                <span class="ml-auto text-xs text-gray-500 font-mono">Three.js</span>
+            </div>
+            <div class="glass-panel rounded-2xl p-3 sm:p-4 border-glow card-hover">
+                <div id="three-container"></div>
+                <div class="flex flex-wrap justify-between items-center mt-3 px-1 text-xs text-gray-500 gap-2">
+                    <span><i class="fas fa-arrows-alt accent-text mr-1 icon-glow"></i> drag to rotate &bull; scroll to zoom</span>
+                    <span>loss landscape &bull; GPH trajectory to 0.023</span>
+                    <span class="font-mono accent-text">λ₁ = 0.42 &nbsp; λ₂ = 0.18</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- BENCHMARKS -->
+        <section id="telemetry" class="scroll-mt-20 fade-in fade-in-d3">
+            <div class="flex items-center gap-3 mb-4 sm:mb-6">
+                <i class="fas fa-microchip text-xl accent-text icon-glow"></i>
+                <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Benchmarks</h2>
+                <span class="ml-auto text-xs text-gray-500 font-mono">CI / 2026-08-23</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div class="glass-panel rounded-2xl p-5 sm:p-6 border-glow card-hover">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-sm sm:text-base">CIFAR-10</h3>
+                        <span class="text-emerald-400 text-xs sm:text-sm font-mono">+2.1%</span>
+                    </div>
+                    <div class="mt-2 flex items-end gap-2">
+                        <span class="text-2xl sm:text-3xl font-mono font-bold accent-text">96.8</span>
+                        <span class="text-gray-500 text-xs sm:text-sm">% accuracy</span>
+                    </div>
+                    <div class="mt-3 w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full" style="width:96.8%; background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));"></div>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-500">ResNet-56 &bull; 200 epochs &bull; batch 128</p>
+                </div>
+                <div class="glass-panel rounded-2xl p-5 sm:p-6 border-glow card-hover">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-sm sm:text-base">ImageNet (top-1)</h3>
+                        <span class="text-emerald-400 text-xs sm:text-sm font-mono">+1.4%</span>
+                    </div>
+                    <div class="mt-2 flex items-end gap-2">
+                        <span class="text-2xl sm:text-3xl font-mono font-bold accent-text">78.3</span>
+                        <span class="text-gray-500 text-xs sm:text-sm">%</span>
+                    </div>
+                    <div class="mt-3 w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full" style="width:78.3%; background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));"></div>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-500">EfficientNet-B4 &bull; 350 epochs &bull; 8×V100</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- DEPLOYMENT -->
+        <section id="planes" class="scroll-mt-20 fade-in fade-in-d3">
+            <div class="flex items-center gap-3 mb-4 sm:mb-6">
+                <i class="fas fa-cloud-upload-alt text-xl accent-text icon-glow"></i>
+                <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Deployment</h2>
+                <span class="ml-auto text-xs text-gray-500 font-mono">edge + cloud</span>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 sm:p-6 md:p-8 border-glow card-hover">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                    <div class="text-center p-3 rounded-xl stat-card">
+                        <i class="fas fa-server text-2xl sm:text-3xl accent-text icon-glow mb-2"></i>
+                        <h4 class="font-medium text-sm sm:text-base">Cloud</h4>
+                        <p class="text-xs text-gray-500 mt-1">AWS SageMaker + EC2<br />TensorRT, ONNX</p>
+                    </div>
+                    <div class="text-center p-3 rounded-xl stat-card">
+                        <i class="fas fa-microchip text-2xl sm:text-3xl mb-2" style="color: var(--gradient-end); filter: drop-shadow(0 0 8px var(--accent-glow));"></i>
+                        <h4 class="font-medium text-sm sm:text-base">Edge</h4>
+                        <p class="text-xs text-gray-500 mt-1">Jetson Nano, Coral TPU<br />TFLite, INT8 quant</p>
+                    </div>
+                    <div class="text-center p-3 rounded-xl stat-card">
+                        <i class="fas fa-code-branch text-2xl sm:text-3xl text-amber-400 icon-glow mb-2"></i>
+                        <h4 class="font-medium text-sm sm:text-base">CI/CD</h4>
+                        <p class="text-xs text-gray-500 mt-1">GitHub Actions + Kubeflow<br />A/B testing &amp; canary</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TERMINAL -->
+        <section id="terminal" class="scroll-mt-20 fade-in fade-in-d4">
+            <div class="flex items-center gap-3 mb-4 sm:mb-6">
+                <i class="fas fa-terminal text-xl accent-text icon-glow"></i>
+                <h2 class="text-xl sm:text-2xl font-bold tracking-tight">CLI</h2>
+                <span class="ml-auto text-xs text-gray-500 font-mono">gph-toolkit</span>
+            </div>
+            <div class="glass-panel rounded-2xl p-4 sm:p-5 border-glow card-hover font-mono text-xs sm:text-sm">
+                <div class="telemetry-log">
+                    <div><span class="cmd">$</span> gph launch --config hessian_v2.yaml --gpus 4</div>
+                    <div class="info">[INFO] Loading checkpoint from s3://gph-models/run-2026-08-23</div>
+                    <div class="info">[INFO] Hessian trace: 0.31 &bull; curvature: 0.87</div>
+                    <div class="info">[INFO] ETA: 47m &bull; loss: 0.023</div>
+                    <div class="success">✓ Training started &bull; logging to wandb/gph-labs</div>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+                    <span><i class="fas fa-check-circle text-emerald-400 mr-1"></i> 12 active jobs</span>
+                    <span><i class="fas fa-hourglass-half text-amber-400 mr-1"></i> 3 queued</span>
+                    <span><i class="fas fa-database accent-text mr-1 icon-glow"></i> 2.4 TB dataset cache</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="border-t border-gray-800 pt-6 sm:pt-8 mt-8 sm:mt-12 text-center text-xs sm:text-sm text-gray-500">
+            <p class="font-mono">
+                &copy; 2026 Gazi Pollob Hussain &bull; built with <i class="fas fa-heart accent-text icon-glow"></i> &bull; open source
+            </p>
+            <div class="flex justify-center gap-4 mt-3 text-base">
+                <a href="#" class="social-icon"><i class="fab fa-github"></i></a>
+                <a href="#" class="social-icon"><i class="fab fa-twitter"></i></a>
+                <a href="#" class="social-icon"><i class="fab fa-linkedin-in"></i></a>
+                <a href="#" class="social-icon"><i class="fab fa-scholar"></i></a>
+            </div>
+        </footer>
+    </main>
+
+    <script>
+        // ================================================================
+        // 1) MATRIX RAIN (dynamic color)
+        // ================================================================
+        (function matrixRain() {
+            const canvas = document.getElementById('matrix');
+            const ctx = canvas.getContext('2d');
+            let W, H;
+            const resize = () => {
+                W = canvas.width = window.innerWidth;
+                H = canvas.height = window.innerHeight;
+            };
+            window.addEventListener('resize', resize);
+            resize();
+            const cols = Math.floor(W / 18);
+            const drops = new Array(cols).fill(0);
+            const chars = '0123456789ABCDEF';
+
+            function draw() {
+                ctx.fillStyle = 'rgba(13,17,23,0.06)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.font = '18px monospace';
+                const color = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#58a6ff';
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 6;
+                for (let i = 0; i < drops.length; i++) {
+                    const ch = chars[Math.floor(Math.random() * chars.length)];
+                    const x = i * 18;
+                    const y = drops[i] * 18;
+                    ctx.fillText(ch, x, y);
+                    if (y > H && Math.random() > 0.98) drops[i] = 0;
+                    drops[i]++;
+                }
+                requestAnimationFrame(draw);
+            }
+            draw();
+        })();
+
+        // ================================================================
+        // 2) THREE.JS 3D HESSIAN LANDSCAPE
+        // ================================================================
+        (function initThree() {
+            const container = document.getElementById('three-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight || 500;
+
+            // Scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0e14);
+
+            // Camera
+            const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+            camera.position.set(6, 5, 8);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // Orbit Controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 1.2;
+            controls.target.set(0, 0.2, 0);
+            controls.update();
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0x404060, 0.6);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(2, 5, 3);
+            scene.add(dirLight);
+            const fill = new THREE.DirectionalLight(0x58a6ff, 0.5);
+            fill.position.set(-3, 1, -2);
+            scene.add(fill);
+
+            // ----- Build landscape mesh (saddle surface) -----
+            const size = 30;
+            const segments = 60;
+            const vertices = [];
+            const indices = [];
+            const colors = [];
+
+            const half = size / 2;
+            const step = size / segments;
+
+            // Peak/valley parameters
+            const peaks = [
+                { x: -2.5, z: -1.8, h: 1.8, s: 1.2 },
+                { x: 3.0, z: 2.2, h: 2.4, s: 1.6 },
+                { x: 0.5, z: -3.0, h: -1.0, s: 1.0 },
+                { x: -1.0, z: 2.8, h: -0.9, s: 1.1 },
+                { x: 2.0, z: -0.5, h: 1.0, s: 0.8 },
+            ];
+
+            // First pass: compute min/max height for color mapping
+            let minY = Infinity,
+                maxY = -Infinity;
+            const grid = [];
+            for (let i = 0; i <= segments; i++) {
+                const z = -half + i * step;
+                const row = [];
+                for (let j = 0; j <= segments; j++) {
+                    const x = -half + j * step;
+                    let y = 0;
+                    for (const p of peaks) {
+                        const dx = x - p.x;
+                        const dz = z - p.z;
+                        const d2 = dx * dx + dz * dz;
+                        y += p.h * Math.exp(-d2 / (2 * p.s * p.s));
+                    }
+                    y += 0.15 * Math.sin(x * 0.6) * Math.cos(z * 0.7);
+                    row.push({ x, y, z });
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+                grid.push(row);
+            }
+            const range = maxY - minY || 1;
+
+            // Build geometry
+            for (let i = 0; i <= segments; i++) {
+                for (let j = 0; j <= segments; j++) {
+                    const p = grid[i][j];
+                    vertices.push(p.x, p.y, p.z);
+                    // Color based on height (t)
+                    const t = (p.y - minY) / range;
+                    // Use a gradient: blue->cyan->yellow->red
+                    const r = Math.min(1, t * 2.0);
+                    const g = Math.min(1, t * 1.5 + 0.2);
+                    const b = Math.max(0, 1 - t * 1.8);
+                    colors.push(r, g, b);
+                }
+            }
+
+            for (let i = 0; i < segments; i++) {
+                for (let j = 0; j < segments; j++) {
+                    const a = i * (segments + 1) + j;
+                    const b = i * (segments + 1) + j + 1;
+                    const c = (i + 1) * (segments + 1) + j;
+                    const d = (i + 1) * (segments + 1) + j + 1;
+                    indices.push(a, b, c);
+                    indices.push(b, d, c);
+                }
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+
+            const material = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                roughness: 0.4,
+                metalness: 0.1,
+                side: THREE.DoubleSide,
+                flatShading: false,
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            // Wireframe overlay (thin)
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x58a6ff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.06,
+            });
+            const wireMesh = new THREE.Mesh(geometry.clone(), wireMat);
+            scene.add(wireMesh);
+
+            // ---- Trajectory (line + markers) ----
+            const trajPoints = [
+                new THREE.Vector3(1.8, 2.8, -1.9),
+                new THREE.Vector3(1.2, 1.4, -1.1),
+                new THREE.Vector3(0.5, 0.4, -0.4),
+                new THREE.Vector3(0.1, 0.08, -0.05),
+                new THREE.Vector3(0.01, 0.023, 0.0)
+            ];
+
+            // Line
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(trajPoints);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+            const line = new THREE.Line(lineGeo, lineMat);
+            scene.add(line);
+
+            // Markers (spheres)
+            const sphereMat = new THREE.MeshStandardMaterial({ color: 0xa78bfa, emissive: 0xa78bfa, emissiveIntensity: 0.3 });
+            for (let i = 0; i < trajPoints.length; i++) {
+                const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), sphereMat);
+                sphere.position.copy(trajPoints[i]);
+                scene.add(sphere);
+            }
+
+            // ---- Store references for dynamic color updates ----
+            window.__threeScene = scene;
+            window.__threeLine = line;
+            window.__threeLineMat = lineMat;
+            window.__threeSpheres = []; // we'll collect them
+            
+            // We already have spheres, but we need to update their color later.
+            // We'll store them in an array.
+            const sphereMeshes = [];
+            scene.children.forEach(child => {
+                if (child.isMesh && child.geometry.type === 'SphereGeometry') {
+                    sphereMeshes.push(child);
+                }
+            });
+            window.__threeSpheres = sphereMeshes;
+            window.__threeWire = wireMesh;
+
+            // ---- Animation loop ----
+            function animate() {
+                controls.update();
+                renderer.render(scene, camera);
+                requestAnimationFrame(animate);
+            }
+            animate();
+
+            // ---- Resize handler ----
+            const ro = new ResizeObserver(() => {
+                const w = container.clientWidth;
+                const h = container.clientHeight || 500;
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, h);
+            });
+            ro.observe(container);
+
+            // ---- Expose for color updates ----
+            window.__threeRenderer = renderer;
+            window.__threeCamera = camera;
+            window.__threeControls = controls;
+            window.__threeContainer = container;
+
+            // Update colors when accent changes
+            window.__updateThreeColors = function(primary, secondary) {
+                // Update line color
+                lineMat.color.set(primary);
+                // Update sphere color
+                sphereMeshes.forEach(sp => {
+                    sp.material.color.set(primary);
+                    sp.material.emissive.set(primary);
+                });
+                // Update wireframe color
+                wireMat.color.set(primary);
+                // Update directional light color
+                scene.children.forEach(child => {
+                    if (child.isDirectionalLight && child.position.x < 0) {
+                        child.color.set(primary);
+                    }
+                });
+            };
+        })();
+
+        // ================================================================
+        // 3) DYNAMIC COLOR EXTRACTION FROM PROFILE IMAGE
+        // ================================================================
+        (function extractColorFromImage() {
+            const img = document.getElementById('profile-img');
+            if (!img) return;
+
+            // Helper to convert RGB to Hex
+            function rgbToHex(r, g, b) {
+                return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            }
+
+            // Apply extracted colors to CSS vars and Three.js
+            function applyColors(primaryHex, secondaryHex) {
+                const root = document.documentElement;
+                
+                // Update main custom properties
+                root.style.setProperty('--accent-color', primaryHex);
+                root.style.setProperty('--gradient-start', primaryHex);
+                root.style.setProperty('--gradient-end', secondaryHex);
+
+                // Convert primary hex back to RGB for glow effect
+                const hex = primaryHex.replace('#', '');
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+                root.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.3)`);
+
+                // Inform the 3D scene of the color change
+                if (typeof window.__updateThreeColors === 'function') {
+                    window.__updateThreeColors(primaryHex, secondaryHex);
+                }
+            }
+
+            const processImage = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    canvas.width = img.naturalWidth || img.width || 100;
+                    canvas.height = img.naturalHeight || img.height || 100;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    // Sample the image to find an average color
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imgData.data;
+                    
+                    let r = 0, g = 0, b = 0, count = 0;
+                    
+                    // Sample every 10th pixel for performance
+                    for (let i = 0; i < data.length; i += 4 * 10) {
+                        // Ignore fully transparent pixels
+                        if (data[i + 3] > 128) {
+                            r += data[i];
+                            g += data[i+1];
+                            b += data[i+2];
+                            count++;
+                        }
+                    }
+                    
+                    if (count > 0) {
+                        r = Math.floor(r / count);
+                        g = Math.floor(g / count);
+                        b = Math.floor(b / count);
+                    } else {
+                        throw new Error("No opaque pixels found");
+                    }
+
+                    // Boost vibrancy if the color is too dark
+                    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+                    if (luminance < 80) {
+                        r = Math.min(255, r + 50);
+                        g = Math.min(255, g + 50);
+                        b = Math.min(255, b + 50);
+                    }
+
+                    const primaryHex = rgbToHex(r, g, b);
+                    // Create a complementary/secondary color by shifting hues slightly
+                    const secondaryHex = rgbToHex(
+                        Math.min(255, r + 40),
+                        Math.max(0, g - 20),
+                        Math.min(255, b + 60)
+                    );
+
+                    applyColors(primaryHex, secondaryHex);
+
+                } catch (e) {
+                    console.warn("Could not extract color from image, keeping defaults. Reason:", e);
+                    // The CSS already defines fallback variables, no crash needed.
+                }
+            };
+
+            // Run process if complete, otherwise wait for load
+            if (img.complete && img.naturalHeight !== 0) {
+                processImage();
+            } else {
+                img.addEventListener('load', processImage);
+                img.addEventListener('error', () => console.warn('Failed to load profile image for color extraction'));
+            }
+        })();
+    </script>
+</body>
+</html>
